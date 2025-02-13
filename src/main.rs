@@ -128,7 +128,6 @@ fn extract_boundary(input_path: &str, output_path: &str) {
         }
     }
 
-    // Select middle pixel if multiple candidates exist
     westmost = *west_candidates.get(west_candidates.len() / 2).unwrap_or(&westmost);
     eastmost = *east_candidates.get(east_candidates.len() / 2).unwrap_or(&eastmost);
     northmost = *north_candidates.get(north_candidates.len() / 2).unwrap_or(&northmost);
@@ -143,8 +142,8 @@ fn extract_boundary(input_path: &str, output_path: &str) {
 }
 
 fn main() {
-    let input_path = "/Users/samarth/codes/titan_mapper/data/titan.png";
-    let output_path = "/Users/samarth/codes/titan_mapper/data/out.png";
+    let input_path = "data/titan.png";
+    let output_path = "data/out.png";
     extract_boundary(input_path, output_path);
     println!("Boundary extraction complete. Output saved as {}", output_path);
 }
