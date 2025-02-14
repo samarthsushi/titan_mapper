@@ -1,4 +1,4 @@
-use eframe::egui;
+use eframe::egui::{self, FontDefinitions, FontData, FontFamily};
 use image::{RgbImage, Rgb};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -152,6 +152,27 @@ fn main() -> Result<(), eframe::Error> {
         viewport: egui::ViewportBuilder::default().with_inner_size([800.0, 600.0]),
         ..Default::default()
     };
-    
-    eframe::run_native("Mollweide mapper", options, Box::new(|_| Ok(Box::new(app))))
+
+    let mut fonts = FontDefinitions::default();
+
+    fonts.font_data.insert("sfpro".to_owned(),
+        std::sync::Arc::new(
+            FontData::from_static(include_bytes!("/Library/Fonts/SF-Pro-Text-Regular.otf"))
+        )
+    );
+
+    fonts.families.get_mut(&FontFamily::Proportional).unwrap()
+        .insert(0, "sfpro".to_owned());
+
+    let mut style = egui::Style::default();
+    style.text_styles.insert(
+        egui::TextStyle::Body,
+        egui::FontId::new(15.0, egui::FontFamily::Proportional),
+    );
+
+    eframe::run_native("Mollweide mapper", options, Box::new(|ctx| {
+        ctx.egui_ctx.set_fonts(fonts);
+        ctx.egui_ctx.set_style(style);
+        Ok(Box::new(app))
+    }))
 }
