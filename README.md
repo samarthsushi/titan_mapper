@@ -14,7 +14,7 @@ the largest cluster would surely be the elliptical boundary
 from this cluster, find these points
 
 ### optimization
-if we know the input map has a fully white background we don't need to performing clustering, since any anomalies would have to lie inside the ellipse (therefore, they cannot be any of the extreme points).
+if we know the input map has a fully white background we don't need to perform clustering, since any anomalies would have to lie inside the ellipse (therefore, they cannot be any of the extreme points).
 
 in step one, as you iterate over the points, just save the four extremes that satisfy the criteria
 
