@@ -1,7 +1,9 @@
-use eframe::egui::{self, FontDefinitions, FontData, FontFamily};
 use image::{RgbImage, Rgb};
-use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
+use std::{
+    collections::HashMap,
+    sync::{Arc, Mutex}
+};
+use eframe::egui::{self, FontDefinitions, FontData, FontFamily};
 
 struct GUI {
     lat: f64,
@@ -31,7 +33,7 @@ impl GUI {
 
     fn map_to_pixel(&self, lat: f64, lon: f64) -> (u32, u32) {
         use std::f64::consts::{PI, SQRT_2};
-        let (leftmost, rightmost, topmost, bottommost) = (44.0, 1336.0, 5.0, 653.0);
+        let (leftmost, rightmost, topmost, bottommost) = (44.0, 1336.0, 5.0, 653.0); // pre-computed from trials stored in `lib.rs`
         let r = (rightmost - leftmost) / (4.0 * SQRT_2);
         let phi = lat.to_radians();
         let lambda = lon.to_radians();
@@ -157,7 +159,7 @@ fn main() -> Result<(), eframe::Error> {
 
     fonts.font_data.insert("sfpro".to_owned(),
         std::sync::Arc::new(
-            FontData::from_static(include_bytes!("/Library/Fonts/SF-Pro-Text-Regular.otf"))
+            FontData::from_static(include_bytes!("/Library/Fonts/SF-Pro-Text-Semibold.otf"))
         )
     );
 
