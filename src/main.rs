@@ -1,149 +1,81 @@
-use image::{GrayImage, Luma, RgbImage, Rgb};
-use std::collections::HashSet;
-use std::u32::MAX;
-use std::u32::MIN;
+use titan_mapper::extract_boundary;
+use std::env;
+use image::Rgb;
 
-fn is_white(pixel: &Rgb<u8>) -> bool {
-    pixel[0] > 230 && pixel[1] > 230 && pixel[2] > 230
-}
-
-fn is_boundary_pixel(img: &RgbImage, x: u32, y: u32) -> bool {
-    if is_white(&img.get_pixel(x, y)) {
-        return false;
-    }
-    let (width, height) = img.dimensions();
-    let directions = [
-        (-1, -1), (0, -1), (1, -1),
-        (-1,  0),         (1,  0),
-        (-1,  1), (0,  1), (1,  1),
-    ];
-    for (dx, dy) in directions.iter() {
-        let nx = x as i32 + dx;
-        let ny = y as i32 + dy;
-        if nx >= 0 && ny >= 0 && nx < width as i32 && ny < height as i32 {
-            if is_white(&img.get_pixel(nx as u32, ny as u32)) {
-                return true;
-            }
-        }
-    }
-    false
-}
-
-fn flood_fill(img: &GrayImage, x: u32, y: u32, visited: &mut HashSet<(u32, u32)>) -> Vec<(u32, u32)> {
-    let (width, height) = img.dimensions();
-    let mut stack = vec![(x, y)];
-    let mut cluster = Vec::new();
-
-    while let Some((cx, cy)) = stack.pop() {
-        if visited.contains(&(cx, cy)) || img.get_pixel(cx, cy)[0] != 128 {
-            continue;
-        }
-        visited.insert((cx, cy));
-        cluster.push((cx, cy));
-        let neighbors = [(-1, 0), (1, 0), (0, -1), (0, 1)];
-        for &(dx, dy) in &neighbors {
-            let nx = cx as i32 + dx;
-            let ny = cy as i32 + dy;
-            if nx >= 0 && ny >= 0 && nx < width as i32 && ny < height as i32 {
-                stack.push((nx as u32, ny as u32));
-            }
-        }
-    }
-    cluster
-}
-
-fn extract_boundary(input_path: &str, output_path: &str) {
-    let img = image::open(input_path).expect("Failed to open image").to_rgb8();
-    let (width, height) = img.dimensions();
-    let mut boundary_img = GrayImage::new(width, height);
-    let mut clusters = Vec::new();
-    let mut visited = HashSet::new();
-
-    for y in 0..height {
-        for x in 0..width {
-            if is_boundary_pixel(&img, x, y) {
-                boundary_img.put_pixel(x, y, Luma([128]));
-            } else {
-                boundary_img.put_pixel(x, y, Luma([255]));
-            }
-        }
-    }
-
-    for y in 0..height {
-        for x in 0..width {
-            if boundary_img.get_pixel(x, y)[0] == 128 && !visited.contains(&(x, y)) {
-                let cluster = flood_fill(&boundary_img, x, y, &mut visited);
-                clusters.push(cluster);
-            }
-        }
-    }
+fn map_to_pixel(
+    lat: f64, lon: f64, 
+    leftmost: f64, rightmost: f64, topmost: f64, bottommost: f64
+) -> (u32, u32) {
+    use std::f64::consts::{PI, SQRT_2};
     
-    let largest_cluster = clusters.into_iter().max_by_key(|c| c.len()).unwrap_or_default();
-    let mut final_img = GrayImage::from_fn(width, height, |_,_| Luma([255]));
-    for &(x, y) in &largest_cluster {
-        final_img.put_pixel(x, y, Luma([128]));
+    let r = (rightmost - leftmost) / (4.0 * SQRT_2);
+    println!("Computed R: {r}");
+
+    let phi = lat.to_radians();
+    let lambda = (lon).to_radians();
+
+    let mut theta = phi;
+    if theta.abs() < PI / 2.0 - 1e-6 {
+        for _ in 0..10 {
+            let num = 2.0 * theta + (2.0 * theta).sin() - PI * phi.sin();
+            let denom = 2.0 + 2.0 * (2.0 * theta).cos();
+            if denom.abs() < 1e-6 {
+                break;
+            }
+            theta -= num / denom;
+        }
+    } else {
+        theta = phi.signum() * PI / 2.0;
     }
 
-    let mut westmost = (MAX, 0);
-    let mut eastmost = (MIN, 0);
-    let mut northmost = (0, MAX);
-    let mut southmost = (0, MIN);
+    let x = (r * (2.0 * SQRT_2 / PI) * lambda * theta.cos());
+    let y = r * SQRT_2 * theta.sin();
 
-    let mut west_candidates = Vec::new();
-    let mut east_candidates = Vec::new();
-    let mut north_candidates = Vec::new();
-    let mut south_candidates = Vec::new();
+    let pixel_x = ((x + 2.0 * r * SQRT_2) / (4.0 * r * SQRT_2)) * (rightmost - leftmost) + leftmost;
+    let pixel_y = ((1.0 - (y / (SQRT_2 * r))) / 2.0) * (bottommost - topmost) + topmost;
 
-    for &(x, y) in &largest_cluster {
-        if x < westmost.0 {
-            westmost = (x, y);
-            west_candidates.clear();
-            west_candidates.push((x, y));
-        } else if x == westmost.0 {
-            west_candidates.push((x, y));
-        }
+    (pixel_x.round() as u32, pixel_y.round() as u32)
+}
 
-        if x > eastmost.0 {
-            eastmost = (x, y);
-            east_candidates.clear();
-            east_candidates.push((x, y));
-        } else if x == eastmost.0 {
-            east_candidates.push((x, y));
-        }
 
-        if y < northmost.1 {
-            northmost = (x, y);
-            north_candidates.clear();
-            north_candidates.push((x, y));
-        } else if y == northmost.1 {
-            north_candidates.push((x, y));
-        }
 
-        if y > southmost.1 {
-            southmost = (x, y);
-            south_candidates.clear();
-            south_candidates.push((x, y));
-        } else if y == southmost.1 {
-            south_candidates.push((x, y));
+fn place_marker_on_image(image_path: &str, output_path: &str, px: u32, py: u32) {
+    let mut img = image::open(image_path).expect("Failed to open image").to_rgb8();
+
+    let marker_color = Rgb([255, 0, 147]);
+    let border_color = Rgb([0, 0, 0]);
+
+    let marker_size = 5;
+    let border_thickness = 2;
+    let (width, height) = img.dimensions();
+
+    for dx in -(marker_size as i32)..=(marker_size as i32) {
+        for dy in -(marker_size as i32)..=(marker_size as i32) {
+            let nx = px as i32 + dx;
+            let ny = py as i32 + dy;
+            if nx >= 0 && nx < width as i32 && ny >= 0 && ny < height as i32 {
+                if dx.abs() >= marker_size - border_thickness || dy.abs() >= marker_size - border_thickness {
+                    img.put_pixel(nx as u32, ny as u32, border_color);
+                } else {
+                    img.put_pixel(nx as u32, ny as u32, marker_color);
+                }
+            }
         }
     }
 
-    westmost = *west_candidates.get(west_candidates.len() / 2).unwrap_or(&westmost);
-    eastmost = *east_candidates.get(east_candidates.len() / 2).unwrap_or(&eastmost);
-    northmost = *north_candidates.get(north_candidates.len() / 2).unwrap_or(&northmost);
-    southmost = *south_candidates.get(south_candidates.len() / 2).unwrap_or(&southmost);
-
-    final_img.put_pixel(westmost.0, westmost.1, Luma([0]));
-    final_img.put_pixel(eastmost.0, eastmost.1, Luma([0]));
-    final_img.put_pixel(northmost.0, northmost.1, Luma([0]));
-    final_img.put_pixel(southmost.0, southmost.1, Luma([0]));
-    
-    final_img.save(output_path).expect("Failed to save output image");
+    img.save(output_path).expect("Failed to save output image");
 }
 
 fn main() {
+    let args: Vec<String> = env::args().collect();
     let input_path = "data/titan.png";
     let output_path = "data/out.png";
-    extract_boundary(input_path, output_path);
-    println!("Boundary extraction complete. Output saved as {}", output_path);
+    let (w,e,n,s) = ((44,328),(1336,329),(692,5),(688,653)); // pre-computed using `extract_boundary` in lib.rs
+    println!("west: {:?}, east: {:?}, north: {:?}, south: {:?}", w, e, n, s);
+    let latitude: f64 = args[1].parse().expect("Invalid latitude");
+    let longitude: f64 = args[2].parse().expect("Invalid longitude");
+
+    let (px, py) = map_to_pixel(latitude, longitude, w.0.into(), e.0.into(), n.1.into(), s.1.into());
+    println!("Mapped coordinates: ({}, {})", px, py);
+    place_marker_on_image(input_path, "data/marked.png", px, py);
 }
