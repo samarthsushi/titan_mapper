@@ -20,4 +20,4 @@ in step one, as you iterate over the points, just save the four extremes that sa
 
 ## screenshots
 ![sc1](./data/sc1.png)
-![sc2](./data/sc1.png)
+![sc2](./data/sc2.png)
